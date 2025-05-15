@@ -1,0 +1,10 @@
+/bin/
+/vendor/
+*.log
+*.env
+*.exe
+*.out
+*.DS_Store
+.idea/
+.vscode/
+configs/config.yaml

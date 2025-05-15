@@ -1,0 +1,35 @@
+package balancer
+
+import (
+	"github.com/vysotskaya-a/balancer/internal/cache"
+	"github.com/vysotskaya-a/balancer/internal/config"
+	"github.com/vysotskaya-a/balancer/internal/logger"
+	"github.com/vysotskaya-a/balancer/internal/proxy"
+	"go.uber.org/zap"
+	"net/http"
+)
+
+func main() {
+	cfg := config.LoadConfig()
+
+	logger.Init()
+	defer logger.Log.Sync()
+	logger.Log.Info("Logger инициализирован")
+
+	redisCache, err := cache.New(cfg.Redis.Addr, cfg.Redis.DB, logger.Log)
+	if err != nil {
+		logger.Log.Fatal("Ошибка подключения к Redis", zap.Error(err))
+	}
+	logger.Log.Info("Redis подключен", zap.String("addr", cfg.Redis.Addr))
+
+	balancer := proxy.NewBalancer(cfg.Targets)
+	logger.Log.Info("Балансировщик инициализирован", zap.Int("targets", len(cfg.Targets)))
+
+	proxyHandler := proxy.NewProxyHandler(balancer, redisCache, logger.Log)
+
+	addr := ":" + cfg.Port
+	logger.Log.Info("Запуск сервера", zap.String("порт", addr))
+	if err := http.ListenAndServe(addr, proxyHandler); err != nil {
+		logger.Log.Fatal("Сервер упал", zap.Error(err))
+	}
+}
